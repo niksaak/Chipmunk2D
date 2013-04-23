@@ -28,8 +28,8 @@ preStep(cpPinJoint *joint, cpFloat dt)
 	cpBody *a = joint->constraint.a;
 	cpBody *b = joint->constraint.b;
 	
-	joint->r1 = cpvrotate(joint->anchr1, a->rot);
-	joint->r2 = cpvrotate(joint->anchr2, b->rot);
+	joint->r1 = cpvrotate(cpvadd(joint->anchr1, a->anchr), a->rot);
+	joint->r2 = cpvrotate(cpvadd(joint->anchr2, b->anchr), b->rot);
 	
 	cpVect delta = cpvsub(cpvadd(b->p, joint->r2), cpvadd(a->p, joint->r1));
 	cpFloat dist = cpvlength(delta);

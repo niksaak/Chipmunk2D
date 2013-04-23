@@ -77,6 +77,8 @@ struct cpBody {
 	/// Used for fast rotations using cpvrotate().
 	cpVect rot;
 	
+	cpVect anchr;
+	
 	/// User definable data pointer.
 	/// Generally this points to your the game object class so you can access it
 	/// when given a cpBody reference in a callback.
@@ -123,6 +125,9 @@ void cpBodyFree(cpBody *body);
 	void cpBodySanityCheck(cpBody *body);
 	#define	cpBodyAssertSane(body) cpBodySanityCheck(body)
 #endif
+
+/// Calculate the mass properties from the shapes currently attached to this body.
+void cpBodyCalculateMassProperties(cpBody *body);
 
 // Defined in cpSpace.c
 /// Wake up a sleeping or idle body.
@@ -191,6 +196,7 @@ void cpBodySetAngle(cpBody *body, cpFloat a);
 CP_DefineBodyStructProperty(cpFloat, w, AngVel)
 CP_DefineBodyStructProperty(cpFloat, t, Torque)
 CP_DefineBodyStructGetter(cpVect, rot, Rot)
+CP_DefineBodyStructProperty(cpVect, anchr, Anchr)
 CP_DefineBodyStructProperty(cpFloat, v_limit, VelLimit)
 CP_DefineBodyStructProperty(cpFloat, w_limit, AngVelLimit)
 CP_DefineBodyStructProperty(cpDataPointer, data, UserData)
@@ -202,13 +208,19 @@ void cpBodyUpdatePosition(cpBody *body, cpFloat dt);
 /// Convert body relative/local coordinates to absolute/world coordinates.
 static inline cpVect cpBodyLocal2World(const cpBody *body, const cpVect v)
 {
-	return cpvadd(body->p, cpvrotate(v, body->rot));
+	return cpvadd(body->p, cpvrotate(cpvadd(v, body->anchr), body->rot));
 }
 
 /// Convert body absolute/world coordinates to  relative/local coordinates.
 static inline cpVect cpBodyWorld2Local(const cpBody *body, const cpVect v)
 {
-	return cpvunrotate(cpvsub(v, body->p), body->rot);
+	return cpvsub(cpvunrotate(cpvsub(v, body->p), body->rot), body->anchr);
+}
+
+/// Get the world position of the body's anchor point.
+static inline cpVect cpBodyGetAnchrPos(const cpBody *body)
+{
+	return cpBodyLocal2World(body, cpvzero);
 }
 
 /// Set the forces and torque or a body to zero.

@@ -23,8 +23,6 @@
 /// The cpShape struct defines the shape of a rigid body.
 /// @{
 
-typedef struct cpShapeClass cpShapeClass;
-
 /// Nearest point query info struct.
 typedef struct cpNearestPointQueryInfo {
 	/// The nearest shape, NULL if no shape was within range.
@@ -45,32 +43,11 @@ typedef struct cpSegmentQueryInfo {
 	cpVect n;
 } cpSegmentQueryInfo;
 
-/// @private
-typedef enum cpShapeType{
-	CP_CIRCLE_SHAPE,
-	CP_SEGMENT_SHAPE,
-	CP_POLY_SHAPE,
-	CP_NUM_SHAPES
-} cpShapeType;
-
-typedef cpBB (*cpShapeCacheDataImpl)(cpShape *shape, cpVect p, cpVect rot);
-typedef void (*cpShapeDestroyImpl)(cpShape *shape);
-typedef void (*cpShapeNearestPointQueryImpl)(cpShape *shape, cpVect p, cpNearestPointQueryInfo *info);
-typedef void (*cpShapeSegmentQueryImpl)(cpShape *shape, cpVect a, cpVect b, cpSegmentQueryInfo *info);
-
-/// @private
-struct cpShapeClass {
-	cpShapeType type;
-	
-	cpShapeCacheDataImpl cacheData;
-	cpShapeDestroyImpl destroy;
-	cpShapeNearestPointQueryImpl nearestPointQuery;
-	cpShapeSegmentQueryImpl segmentQuery;
-};
+struct cpShapeClass;
 
 /// Opaque collision shape struct.
 struct cpShape {
-	CP_PRIVATE(const cpShapeClass *klass);
+	CP_PRIVATE(const struct cpShapeClass *klass);
 	
 	/// The rigid body this collision shape is attached to.
 	cpBody *body;
@@ -88,6 +65,8 @@ struct cpShape {
 	cpFloat u;
 	/// Surface velocity used when solving for friction.
 	cpVect surface_v;
+	// Density of the shape. Used to calculate the mass properties of a body when cpBodyCalculateMassProperties() is called.
+	cpFloat density;
 
 	/// User definable data pointer.
 	/// Generally this points to your the game object class so you can access it
@@ -163,6 +142,7 @@ CP_DefineShapeStructGetter(cpBB, bb, BB)
 CP_DefineShapeStructProperty(cpBool, sensor, Sensor, cpTrue)
 CP_DefineShapeStructProperty(cpFloat, e, Elasticity, cpFalse)
 CP_DefineShapeStructProperty(cpFloat, u, Friction, cpTrue)
+CP_DefineShapeStructProperty(cpFloat, density, Density, cpFalse)
 CP_DefineShapeStructProperty(cpVect, surface_v, SurfaceVelocity, cpTrue)
 CP_DefineShapeStructProperty(cpDataPointer, data, UserData, cpFalse)
 CP_DefineShapeStructProperty(cpCollisionType, collision_type, CollisionType, cpTrue)

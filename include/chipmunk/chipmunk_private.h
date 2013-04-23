@@ -99,6 +99,35 @@ void cpBodyRemoveConstraint(cpBody *body, cpConstraint *constraint);
 
 //MARK: Shape/Collision Functions
 
+struct cpMassInfo {
+	cpFloat mass;
+	cpFloat moment;
+	cpVect centroid;
+};
+
+typedef cpBB (*cpShapeCacheDataImpl)(cpShape *shape, cpVect p, cpVect rot);
+typedef void (*cpShapeDestroyImpl)(cpShape *shape);
+typedef struct cpMassInfo (*cpShapeMassInfoImpl)(cpShape *shape, cpFloat density);
+typedef void (*cpShapeNearestPointQueryImpl)(cpShape *shape, cpVect p, cpNearestPointQueryInfo *info);
+typedef void (*cpShapeSegmentQueryImpl)(cpShape *shape, cpVect a, cpVect b, cpSegmentQueryInfo *info);
+
+typedef enum cpShapeType{
+	CP_CIRCLE_SHAPE,
+	CP_SEGMENT_SHAPE,
+	CP_POLY_SHAPE,
+	CP_NUM_SHAPES
+} cpShapeType;
+
+struct cpShapeClass {
+	cpShapeType type;
+	
+	cpShapeCacheDataImpl cacheData;
+	cpShapeDestroyImpl destroy;
+	cpShapeMassInfoImpl massInfo;
+	cpShapeNearestPointQueryImpl nearestPointQuery;
+	cpShapeSegmentQueryImpl segmentQuery;
+};
+
 // TODO should move this to the cpVect API. It's pretty useful.
 static inline cpVect
 cpClosetPointOnSegment(const cpVect p, const cpVect a, const cpVect b)
@@ -108,7 +137,7 @@ cpClosetPointOnSegment(const cpVect p, const cpVect a, const cpVect b)
 	return cpvadd(b, cpvmult(delta, t));
 }
 
-cpShape* cpShapeInit(cpShape *shape, const cpShapeClass *klass, cpBody *body);
+cpShape* cpShapeInit(cpShape *shape, const struct cpShapeClass *klass, cpBody *body);
 
 static inline cpBool
 cpShapeActive(cpShape *shape)

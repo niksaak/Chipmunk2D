@@ -62,25 +62,33 @@ init(void)
 	cpShapeSetLayers(shape, NOT_GRABABLE_MASK);
 	
 	// Add lots of boxes.
-	for(int i=0; i<14; i++){
+	for(int i=0; i<1; i++){
 		for(int j=0; j<=i; j++){
-			body = cpSpaceAddBody(space, cpBodyNew(1.0f, cpMomentForBox(1.0f, 30.0f, 30.0f)));
+			body = cpSpaceAddBody(space, cpBodyNew(1.0f, cpMomentForBox(4.0f, 60, 60)));
 			cpBodySetPos(body, cpv(j*32 - i*16, 300 - i*32));
 			
-			shape = cpSpaceAddShape(space, cpBoxShapeNew(body, 30.0f, 30.0f));
-			cpShapeSetElasticity(shape, 0.0f);
-			cpShapeSetFriction(shape, 0.8f);
+//			shape = cpSpaceAddShape(space, cpBoxShapeNew(body, 30.0f, 30.0f));
+			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew( 0,  0, 30, 30)));
+			cpShapeSetDensity(shape, 1.0/900.0);
+			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew(30,  0, 60, 30)));
+			cpShapeSetDensity(shape, 1.0/900.0);
+			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew( 0, 30, 30, 60)));
+			cpShapeSetDensity(shape, 1.0/900.0);
+			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew(30, 30, 60, 60)));
+			cpShapeSetDensity(shape, 1.0/900.0);
+			
+			cpBodyCalculateMassProperties(body);
 		}
 	}
 	
 	// Add a ball to make things more interesting
-	cpFloat radius = 15.0f;
-	body = cpSpaceAddBody(space, cpBodyNew(10.0f, cpMomentForCircle(10.0f, 0.0f, radius, cpvzero)));
-	cpBodySetPos(body, cpv(0, -240 + radius+5));
-
-	shape = cpSpaceAddShape(space, cpCircleShapeNew(body, radius, cpvzero));
-	cpShapeSetElasticity(shape, 0.0f);
-	cpShapeSetFriction(shape, 0.9f);
+//	cpFloat radius = 15.0f;
+//	body = cpSpaceAddBody(space, cpBodyNew(10.0f, cpMomentForCircle(10.0f, 0.0f, radius, cpvzero)));
+//	cpBodySetPos(body, cpv(0, -240 + radius+5));
+//
+//	shape = cpSpaceAddShape(space, cpCircleShapeNew(body, radius, cpvzero));
+//	cpShapeSetElasticity(shape, 0.0f);
+//	cpShapeSetFriction(shape, 0.9f);
 	
 	return space;
 }

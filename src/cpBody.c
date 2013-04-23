@@ -134,6 +134,37 @@ cpBodySanityCheck(cpBody *body)
 }
 #endif
 
+struct MassPropertiesContext {
+	cpFloat mass;
+	cpFloat moment;
+	cpVect cog;
+};
+
+static void
+CalculateMassProperties(cpBody *body, cpShape *shape, struct MassPropertiesContext *ctx)
+{
+	if(shape->density){
+		struct cpMassInfo info = shape->klass->massInfo(shape, shape->density);
+		cpFloat msum = ctx->mass + info.mass;
+		
+		ctx->moment += info.moment + cpvdistsq(ctx->cog, info.centroid)*(info.mass*ctx->mass)/msum;
+		ctx->cog = cpvlerp(ctx->cog, info.centroid, info.mass/msum);
+		ctx->mass = msum;
+	}
+}
+
+void
+cpBodyCalculateMassProperties(cpBody *body)
+{
+	struct MassPropertiesContext ctx = {0.0f, 0.0f, cpvzero};
+	cpBodyEachShape(body, (cpBodyShapeIteratorFunc)CalculateMassProperties, &ctx);
+	
+	printf("mass: %5.2f, moment: %5.2f, cog: (%5.2f, %5.2f)\n", ctx.mass, ctx.moment, ctx.cog.x, ctx.cog.y);
+	cpBodySetMass(body, ctx.mass);
+	cpBodySetMoment(body, ctx.moment);
+	cpBodySetAnchr(body, cpvneg(ctx.cog));
+}
+
 void
 cpBodySetMass(cpBody *body, cpFloat mass)
 {

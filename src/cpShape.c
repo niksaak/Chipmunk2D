@@ -38,7 +38,7 @@ cpResetShapeIdCounter(void)
 
 
 cpShape*
-cpShapeInit(cpShape *shape, const cpShapeClass *klass, cpBody *body)
+cpShapeInit(cpShape *shape, const struct cpShapeClass *klass, cpBody *body)
 {
 	shape->klass = klass;
 	
@@ -92,7 +92,9 @@ cpBB
 cpShapeCacheBB(cpShape *shape)
 {
 	cpBody *body = shape->body;
-	return cpShapeUpdate(shape, body->p, body->rot);
+	cpVect rot = body->rot;
+	cpVect anchrPos = cpvadd(body->p, cpvrotate(body->anchr, rot));
+	return cpShapeUpdate(shape, anchrPos, rot);
 }
 
 cpBB
@@ -159,6 +161,16 @@ cpCircleShapeCacheData(cpCircleShape *circle, cpVect p, cpVect rot)
 	return cpBBNewForCircle(c, circle->r);
 }
 
+static struct cpMassInfo
+cpCircleShapeMassInfo(cpCircleShape *circle, cpFloat density)
+{
+	cpFloat mass = density*cpAreaForCircle(0.0f, circle->r);
+	cpFloat moment = cpMomentForCircle(mass, 0.0f, circle->r, cpvzero);
+	
+	struct cpMassInfo info = {mass, moment, circle->c};
+	return info;
+}
+
 static void
 cpCicleShapeNearestPointQuery(cpCircleShape *circle, cpVect p, cpNearestPointQueryInfo *info)
 {
@@ -199,10 +211,11 @@ cpCircleShapeSegmentQuery(cpCircleShape *circle, cpVect a, cpVect b, cpSegmentQu
 	circleSegmentQuery((cpShape *)circle, circle->tc, circle->r, a, b, info);
 }
 
-static const cpShapeClass cpCircleShapeClass = {
+static const struct cpShapeClass cpCircleShapeClass = {
 	CP_CIRCLE_SHAPE,
 	(cpShapeCacheDataImpl)cpCircleShapeCacheData,
 	NULL,
+	(cpShapeMassInfoImpl)cpCircleShapeMassInfo,
 	(cpShapeNearestPointQueryImpl)cpCicleShapeNearestPointQuery,
 	(cpShapeSegmentQueryImpl)cpCircleShapeSegmentQuery,
 };
@@ -262,6 +275,17 @@ cpSegmentShapeCacheData(cpSegmentShape *seg, cpVect p, cpVect rot)
 	return cpBBNew(l - rad, b - rad, r + rad, t + rad);
 }
 
+static struct cpMassInfo
+cpSegmentShapeMassInfo(cpSegmentShape *segment, cpFloat density)
+{
+	cpFloat mass = density*cpAreaForSegment(segment->a, segment->b, segment->r);
+	cpFloat w = 2.0f*segment->r;
+	cpFloat moment = cpMomentForBox(mass, cpvdist(segment->a, segment->b) + w, w); // TODO approximation
+	
+	struct cpMassInfo info = {mass, moment, cpvlerp(segment->a, segment->b, 0.5f)};
+	return info;
+}
+
 static void
 cpSegmentShapeNearestPointQuery(cpSegmentShape *seg, cpVect p, cpNearestPointQueryInfo *info)
 {
@@ -315,10 +339,11 @@ cpSegmentShapeSegmentQuery(cpSegmentShape *seg, cpVect a, cpVect b, cpSegmentQue
 	}
 }
 
-static const cpShapeClass cpSegmentShapeClass = {
+static const struct cpShapeClass cpSegmentShapeClass = {
 	CP_SEGMENT_SHAPE,
 	(cpShapeCacheDataImpl)cpSegmentShapeCacheData,
 	NULL,
+	(cpShapeMassInfoImpl)cpSegmentShapeMassInfo,
 	(cpShapeNearestPointQueryImpl)cpSegmentShapeNearestPointQuery,
 	(cpShapeSegmentQueryImpl)cpSegmentShapeSegmentQuery,
 };
