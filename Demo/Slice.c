@@ -37,7 +37,7 @@ ClipPoly(cpSpace *space, cpShape *shape, cpVect n, cpFloat dist)
 	cpVect *clipped = (cpVect *)alloca((count + 1)*sizeof(cpVect));
 	
 	for(int i=0, j=count-1; i<count; j=i, i++){
-		cpVect a = cpBodyLocal2World(body, cpPolyShapeGetVert(shape, j));
+		cpVect a = cpPolyShapeGetVert(shape, j);
 		cpFloat a_dist = cpvdot(a, n) - dist;
 		
 		if(a_dist < 0.0){
@@ -45,7 +45,7 @@ ClipPoly(cpSpace *space, cpShape *shape, cpVect n, cpFloat dist)
 			clippedCount++;
 		}
 		
-		cpVect b = cpBodyLocal2World(body, cpPolyShapeGetVert(shape, i));
+		cpVect b = cpPolyShapeGetVert(shape, i);
 		cpFloat b_dist = cpvdot(b, n) - dist;
 		
 		if(a_dist*b_dist < 0.0f){
@@ -56,18 +56,21 @@ ClipPoly(cpSpace *space, cpShape *shape, cpVect n, cpFloat dist)
 		}
 	}
 	
-	cpVect centroid = cpCentroidForPoly(clippedCount, clipped);
-	cpFloat mass = cpAreaForPoly(clippedCount, clipped)*DENSITY;
-	cpFloat moment = cpMomentForPoly(mass, clippedCount, clipped, cpvneg(centroid));
+	cpBody *new_body = cpSpaceAddBody(space, cpBodyNew(0.0f, 0.0f));
+	cpBodySetPos(new_body, cpBodyGetPos(body));
+	cpBodySetAngle(new_body, cpBodyGetAngle(body));
 	
-	cpBody *new_body = cpSpaceAddBody(space, cpBodyNew(mass, moment));
-	cpBodySetPos(new_body, centroid);
-	cpBodySetVel(new_body, cpBodyGetVelAtWorldPoint(body, centroid));
-	cpBodySetAngVel(new_body, cpBodyGetAngVel(body));
-	
-	cpShape *new_shape = cpSpaceAddShape(space, cpPolyShapeNew(new_body, clippedCount, clipped, cpvneg(centroid)));
+	cpShape *new_shape = cpSpaceAddShape(space, cpPolyShapeNew(new_body, clippedCount, clipped, cpvzero));
 	// Copy whatever properties you have set on the original shape that are important
 	cpShapeSetFriction(new_shape, cpShapeGetFriction(shape));
+	
+	// Calculate the mass, moment of inertia, center of gravity, etc for the new body based on the shape.
+	cpBodyAddMassForShape(new_body, new_shape, DENSITY);
+	
+	// Set the velocity info
+	cpVect new_cog = cpBodyLocal2World(new_body, cpBodyGetCOGOffset(new_body));
+	cpBodySetVel(new_body, cpBodyGetVelAtWorldPoint(body, new_cog));
+	cpBodySetAngVel(new_body, cpBodyGetAngVel(body));
 }
 
 // Context structs are annoying, use blocks or closures instead if your compiler supports them.
@@ -79,8 +82,11 @@ struct SliceContext {
 static void
 SliceShapePostStep(cpSpace *space, cpShape *shape, struct SliceContext *context)
 {
-	cpVect a = context->a;
-	cpVect b = context->b;
+	// Convert the endpoints to be local to the body.
+	// This way you can share their coordinate systems.
+	// (This will make it easier if you want to slice up texture coords or sprites too)
+	cpVect a = cpBodyWorld2Local(cpShapeGetBody(shape), context->a);
+	cpVect b = cpBodyWorld2Local(cpShapeGetBody(shape), context->b);
 	
 	// Clipping plane normal and distance.
 	cpVect n = cpvnormalize(cpvperp(cpvsub(b, a)));

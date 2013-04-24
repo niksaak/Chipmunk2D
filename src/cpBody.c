@@ -20,6 +20,7 @@
  */
  
 #include <float.h>
+#include <stdarg.h>
 
 #include "chipmunk_private.h"
 #include "constraints/util.h"
@@ -36,6 +37,10 @@ cpBodyAlloc(void)
 cpBody *
 cpBodyInit(cpBody *body, cpFloat m, cpFloat i)
 {
+	body->m = m; body->m_inv = 1.0f/m;
+	body->i = i; body->i_inv = 1.0f/i;
+	body->a = 0.0f; body->rot = cpv(1.0f, 0.0f);
+	
 	body->space = NULL;
 	body->shapeList = NULL;
 	body->arbiterList = NULL;
@@ -61,11 +66,6 @@ cpBodyInit(cpBody *body, cpFloat m, cpFloat i)
 	body->w_limit = (cpFloat)INFINITY;
 	
 	body->data = NULL;
-	
-	// Setters must be called after full initialization so the sanity checks don't assert on garbage data.
-	cpBodySetMass(body, m);
-	cpBodySetMoment(body, i);
-	cpBodySetAngle(body, 0.0f);
 	
 	return body;
 }
@@ -134,35 +134,56 @@ cpBodySanityCheck(cpBody *body)
 }
 #endif
 
-struct MassPropertiesContext {
-	cpFloat mass;
-	cpFloat moment;
-	cpVect cog;
-};
-
-static void
-CalculateMassProperties(cpBody *body, cpShape *shape, struct MassPropertiesContext *ctx)
+void
+cpBodyAddMassForShape(cpBody *body, cpShape *shape, cpFloat density)
 {
-	if(shape->density){
-		struct cpMassInfo info = shape->klass->massInfo(shape, shape->density);
-		cpFloat msum = ctx->mass + info.mass;
-		
-		ctx->moment += info.moment + cpvdistsq(ctx->cog, info.centroid)*(info.mass*ctx->mass)/msum;
-		ctx->cog = cpvlerp(ctx->cog, info.centroid, info.mass/msum);
-		ctx->mass = msum;
-	}
+	// Cache the position to realign it at the end.
+	cpVect pos = cpBodyGetPos(body);
+	
+	cpAssertHard(density > 0.0f, "Density must be positive. (density: %f)", density);
+	struct cpMassInfo info = shape->klass->massInfo(shape, density);
+	cpFloat msum = body->m + info.m;
+	
+	body->i += info.i + cpvdistsq(body->cog, info.cog)*(info.m*body->m)/msum;
+	body->cog = cpvlerp(body->cog, info.cog, info.m/msum);
+	body->m = msum;
+	
+	body->m_inv = 1.0f/body->m;
+	body->i_inv = 1.0f/body->i;
+	
+	// Realign the position
+	cpBodySetPos(body, pos);
+	
+//	cpVect p = cpBodyGetPos(body);
+//	printf("p: (%5.2f, %5.2f)\n", p.x, p.y);
+	
+	// If the body is already added to a space then reindex it's
+	// shapes since we just shifted all of them.
+	// TODO would like to avoid this in Chipmunk 7
+	cpSpace *space = cpBodyGetSpace(body);
+	if(space) cpSpaceReindexShapesForBody(space, body);
 }
 
-void
-cpBodyCalculateMassProperties(cpBody *body)
+cpBody *
+cpBodyNewWithMassFromShapes(cpFloat mass, cpShape *shape, ...)
 {
-	struct MassPropertiesContext ctx = {0.0f, 0.0f, cpvzero};
-	cpBodyEachShape(body, (cpBodyShapeIteratorFunc)CalculateMassProperties, &ctx);
+	cpAssertHard(mass > 0.0f, "Mass must be positive. (mass: %f)", mass);
+	cpBody *body = cpBodyNew(0.0f, 0.0f);
 	
-	printf("mass: %5.2f, moment: %5.2f, cog: (%5.2f, %5.2f)\n", ctx.mass, ctx.moment, ctx.cog.x, ctx.cog.y);
-	cpBodySetMass(body, ctx.mass);
-	cpBodySetMoment(body, ctx.moment);
-	cpBodySetAnchr(body, cpvneg(ctx.cog));
+	va_list vargs;
+	va_start(vargs, shape);
+	for(; shape; shape = va_arg(vargs, cpShape *)){
+		cpBodyAddMassForShape(body, shape, 1.0);
+		cpShapeSetBody(shape, body);
+	}
+	va_end(vargs);
+	
+	// Normalize mass to specified value;
+	cpAssertHard(body->m > 0.0f, "Body has no mass.");
+	cpBodySetMoment(body, body->i*mass/body->m);
+	cpBodySetMass(body, mass);
+	
+	return body;
 }
 
 void
@@ -241,7 +262,7 @@ void
 cpBodySetPos(cpBody *body, cpVect pos)
 {
 	cpBodyActivate(body);
-	body->p = pos;
+	body->p = cpvadd(cpvrotate(body->cog, body->rot), pos);
 	cpBodyAssertSane(body);
 }
 
@@ -296,26 +317,31 @@ cpBodyApplyForce(cpBody *body, cpVect force, cpVect r)
 {
 	cpBodyActivate(body);
 	body->f = cpvadd(body->f, force);
-	body->t += cpvcross(r, force);
+	
+	cpVect r_cog = cpvsub(cpvrotate(body->cog, body->rot), r);
+	body->t += cpvcross(r_cog, force);
 }
 
 void
 cpBodyApplyImpulse(cpBody *body, const cpVect j, const cpVect r)
 {
 	cpBodyActivate(body);
-	apply_impulse(body, j, r);
+	
+	cpVect r_cog = cpvsub(cpvrotate(body->cog, body->rot), r);
+	apply_impulse(body, j, r_cog);
 }
 
 static inline cpVect
 cpBodyGetVelAtPoint(cpBody *body, cpVect r)
 {
-	return cpvadd(body->v, cpvmult(cpvperp(r), body->w));
+	cpVect r_cog = cpvsub(cpvrotate(body->cog, body->rot), r);
+	return cpvadd(body->v, cpvmult(cpvperp(r_cog), body->w));
 }
 
 cpVect
 cpBodyGetVelAtWorldPoint(cpBody *body, cpVect point)
 {
-	return cpBodyGetVelAtPoint(body, cpvsub(point, body->p));
+	return cpBodyGetVelAtPoint(body, cpvsub(cpBodyGetPos(body), body->p));
 }
 
 cpVect

@@ -64,20 +64,35 @@ init(void)
 	// Add lots of boxes.
 	for(int i=0; i<1; i++){
 		for(int j=0; j<=i; j++){
-			body = cpSpaceAddBody(space, cpBodyNew(1.0f, cpMomentForBox(4.0f, 60, 60)));
-			cpBodySetPos(body, cpv(j*32 - i*16, 300 - i*32));
+			cpFloat s = 100.0;
+			body = cpBodyNew(0.0f, 0.0f);
+			cpBodySetPos(body, cpv(0, 0));
+
+			cpFloat density = 1.0/900.0f;
 			
-//			shape = cpSpaceAddShape(space, cpBoxShapeNew(body, 30.0f, 30.0f));
-			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew( 0,  0, 30, 30)));
-			cpShapeSetDensity(shape, 1.0/900.0);
-			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew(30,  0, 60, 30)));
-			cpShapeSetDensity(shape, 1.0/900.0);
-			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew( 0, 30, 30, 60)));
-			cpShapeSetDensity(shape, 1.0/900.0);
-			shape = cpSpaceAddShape(space, cpBoxShapeNew2(body, cpBBNew(30, 30, 60, 60)));
-			cpShapeSetDensity(shape, 1.0/900.0);
+			cpShape *shape1 = cpBoxShapeNew2(body, cpBBNew(0, 0,   s,   s));
+			cpShapeSetFriction(shape1, 0.7);
+			cpBodyAddMassForShape(body, shape1, density);
 			
-			cpBodyCalculateMassProperties(body);
+			cpShape *shape2 = cpBoxShapeNew2(body, cpBBNew(s, 0, 2*s,   s));
+			cpShapeSetFriction(shape2, 0.7);
+			cpBodyAddMassForShape(body, shape2, density);
+			
+			cpShape *shape3 = cpBoxShapeNew2(body, cpBBNew(0, s,   s, 2*s));
+			cpShapeSetFriction(shape3, 0.7);
+			cpBodyAddMassForShape(body, shape3, density);
+			
+			cpShape *shape4 = cpBoxShapeNew2(body, cpBBNew(s, s, 2*s, 2*s));
+			cpShapeSetFriction(shape4, 0.7);
+			cpBodyAddMassForShape(body, shape4, density);
+			
+			cpSpaceAddBody(space, body);
+//			cpBodySetPos(body, cpvzero);
+			
+			cpSpaceAddShape(space, shape1);
+			cpSpaceAddShape(space, shape2);
+			cpSpaceAddShape(space, shape3);
+			cpSpaceAddShape(space, shape4);
 		}
 	}
 	

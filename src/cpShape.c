@@ -93,7 +93,7 @@ cpShapeCacheBB(cpShape *shape)
 {
 	cpBody *body = shape->body;
 	cpVect rot = body->rot;
-	cpVect anchrPos = cpvadd(body->p, cpvrotate(body->anchr, rot));
+	cpVect anchrPos = cpvsub(body->p, cpvrotate(body->cog, rot));
 	return cpShapeUpdate(shape, anchrPos, rot);
 }
 

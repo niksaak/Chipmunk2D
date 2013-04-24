@@ -100,9 +100,8 @@ void cpBodyRemoveConstraint(cpBody *body, cpConstraint *constraint);
 //MARK: Shape/Collision Functions
 
 struct cpMassInfo {
-	cpFloat mass;
-	cpFloat moment;
-	cpVect centroid;
+	cpFloat m, i;
+	cpVect cog;
 };
 
 typedef cpBB (*cpShapeCacheDataImpl)(cpShape *shape, cpVect p, cpVect rot);
