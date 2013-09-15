@@ -40,6 +40,10 @@ if(NOT MSVC)
   set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Wall") # extend debug-profile with -Wall
 endif()
 
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fblocks") # enable blocks on Clang
+endif()
+
 add_subdirectory(src)
 
 if(BUILD_DEMOS)
